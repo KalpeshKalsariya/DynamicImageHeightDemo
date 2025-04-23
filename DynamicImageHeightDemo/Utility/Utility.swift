@@ -45,6 +45,6 @@ class BannerUtility {
         
         // Calculate height using aspect ratio
         let height = (width * fileHeight) / fileWidth
-        return CGSize(width: width, height: height + 10)
+        return CGSize(width: width, height: height)
     }
 }
