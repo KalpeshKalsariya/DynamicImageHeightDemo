@@ -6,80 +6,189 @@
 //
 
 import UIKit
+import ImageIO
+
+struct ImageItem {
+    var imageURL: String
+    var width: CGFloat?
+    var height: CGFloat?
+}
 
 class ViewController: UIViewController {
     
     @IBOutlet weak var tblview: UITableView!
     
+    let imageCache = NSCache<NSString, UIImage>()
+    var rowHeights: [Int: CGFloat] = [:]
+    var sectionItems: [Int: [ImageItem]] = [:]
+    
     override func viewDidLoad() {
         super.viewDidLoad()
         
-        // Register custom cell
-        let nib = UINib(nibName: "HomeTableViewCell", bundle: nil)
-        tblview.register(nib, forCellReuseIdentifier: "HomeTableViewCell")
+        tblview.register(UINib(nibName: "HomeTableViewCell", bundle: nil), forCellReuseIdentifier: "HomeTableViewCell")
         
         tblview.rowHeight = UITableView.automaticDimension
-        tblview.estimatedRowHeight = 100
-        tblview.separatorStyle = .none
+        tblview.estimatedRowHeight = 200
+        
+        preloadImages()
+    }
+    
+    func getImageDimensions(from url: URL) -> CGSize? {
+        // Create an image source from the URL
+        guard let source = CGImageSourceCreateWithURL(url as CFURL, nil) else {
+            return nil
+        }
+        
+        // Retrieve image properties
+        let properties = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any]
+        
+        // Extract width and height from properties
+        if let width = properties?[kCGImagePropertyPixelWidth] as? CGFloat,
+           let height = properties?[kCGImagePropertyPixelHeight] as? CGFloat {
+            return CGSize(width: width, height: height)
+        }
+        
+        return nil
+    }
+    
+    func preloadImages() {
+        // Start processing the sections sequentially
+        preloadSection(0) // Start with section 0
+    }
+
+    func preloadSection(_ section: Int) {
+        // Ensure we don’t process sections beyond the available ones
+        guard section < 5 else { return }
+
+        let items = getMenuItems(for: section)
+        var updatedItems = items
+        
+        // Create a DispatchGroup to track the completion of all image downloads in the section
+        let group = DispatchGroup()
+        
+        // Iterate through items in the section
+        for (index, item) in items.enumerated() {
+            guard let url = URL(string: item.imageURL) else { continue }
+
+            // Enter the dispatch group before starting the task
+            group.enter()
+
+            // Perform image sourcing and property retrieval in a background queue
+            DispatchQueue.global(qos: .background).async {
+                // Ensure we can create the CGImageSource from the URL
+                guard let source = CGImageSourceCreateWithURL(url as CFURL, nil) else {
+                    // Exit if source creation fails
+                    group.leave()
+                    return
+                }
+
+                // Retrieve image properties
+                let properties = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any]
+
+                // Extract width and height from properties
+                if let width = properties?[kCGImagePropertyPixelWidth] as? CGFloat,
+                   let height = properties?[kCGImagePropertyPixelHeight] as? CGFloat {
+                    // Update the width and height for the item in the temporary array
+                    updatedItems[index].width = width
+                    updatedItems[index].height = height
+                }
+                
+                // Leave the dispatch group after completing the task for this item
+                group.leave()
+            }
+        }
+
+        // Notify when all tasks are complete for this section
+        group.notify(queue: .main) {
+            // After all images have been processed, update sectionItems for the current section
+            self.sectionItems[section] = updatedItems // Now update sectionItems
+
+            // Update rowHeights if needed (based on your specific logic for calculating max height)
+            if let height = self.getMaxHeightForSection(section: section) {
+                self.rowHeights[section] = height
+            }
+
+            // Reload the section after all image processing is complete
+            self.tblview.reloadSections(IndexSet(integer: section), with: .fade)
+            
+            // After the current section is finished, process the next section
+            
+            self.preloadSection(section + 1)
+        }
+        
         tblview.delegate = self
         tblview.dataSource = self
     }
-    
-    // Menu items per section
-    func getMenuItems(for section: Int) -> [[String: String]] {
+
+
+    func getMenuItems(for section: Int) -> [ImageItem] {
+        if let items = sectionItems[section] {
+            return items
+        }
+        
+        let items: [ImageItem]
+        
         switch section {
         case 0:
-            return [
-                ["imageURL": "https://d1csarkz8obe9u.cloudfront.net/posterpreviews/big-sale-banner-design-template-69fd62ea9ecc86cf15cc8e8e6dce7a1c_screen.jpg?ts=1656924683", "title": "Banner 1", "width": "696", "height": "365"],
-                ["imageURL": "https://www.brandeis.edu/cms-guide/building-editing/content-types/images/banner-single-sample.jpg", "title": "Banner 1", "width": "1920", "height": "768"],
-                ["imageURL": "https://img.freepik.com/free-vector/traditional-happy-diwali-artistic-banner-design_1017-34439.jpg?t=st=1745050288~exp=1745053888~hmac=16f1123009175aa0198bd11dc55eca72a918ca5c53a6a9b8c12a3f2270f58aa2&w=1380", "title": "Banner 1", "width": "1062", "height": "409"]
+            items = [
+                ImageItem(imageURL: "https://img.freepik.com/free-vector/flat-abstract-business-youtube-thumbnail_23-2148925265.jpg?ga=GA1.1.2132131251.1745039823&semt=ais_hybrid&w=740"),
+                ImageItem(imageURL: "https://d1csarkz8obe9u.cloudfront.net/posterpreviews/big-sale-banner-design-template-69fd62ea9ecc86cf15cc8e8e6dce7a1c_screen.jpg?ts=1656924683"),
+                ImageItem(imageURL: "https://www.brandeis.edu/cms-guide/building-editing/content-types/images/banner-single-sample.jpg"),
+                ImageItem(imageURL: "https://img.freepik.com/free-vector/gradient-business-banner-template_23-2149717827.jpg?ga=GA1.1.2132131251.1745039823&semt=ais_hybrid&w=740"),
+                ImageItem(imageURL: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcR1KpS7qg4ax-KGyt2XpAEDas1_iHrhVC4row&s"),
+                ImageItem(imageURL: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcR3GioT9Z1rBy0N9x0XG_2p4sdYwGuu3T1q2g&s"),
+                ImageItem(imageURL: "https://www.shutterstock.com/image-vector/sale-banner-template-design-big-260nw-1426828307.jpg"),
             ]
         case 1:
-            return [
-                ["imageURL": "https://d23z30i20xtohh.cloudfront.net/banners/banner_1741314440891.png", "title": "Banner 1", "width": "1024", "height": "683"],
-                ["imageURL": "https://d23z30i20xtohh.cloudfront.net/banners/banner_1741314421222.png", "title": "Banner 2", "width": "1024", "height": "683"],
-                ["imageURL": "https://d23z30i20xtohh.cloudfront.net/banners/banner_1741314405247.png", "title": "Banner 3", "width": "1024", "height": "683"]
+            items = [
+                ImageItem(imageURL: "https://img.freepik.com/premium-psd/digital-marketing-agency-corporate-facebook-cover-template-design_550280-1998.jpg?ga=GA1.1.2132131251.1745039823&semt=ais_hybrid&w=740"),
+                ImageItem(imageURL: "https://d23z30i20xtohh.cloudfront.net/banners/banner_1741314440891.png"),
+                ImageItem(imageURL: "https://d23z30i20xtohh.cloudfront.net/banners/banner_1741314421222.png"),
+                ImageItem(imageURL: "https://d23z30i20xtohh.cloudfront.net/banners/banner_1741314405247.png")
             ]
         case 2:
-            return [
-                ["imageURL": "https://d23z30i20xtohh.cloudfront.net/banners/banner_1703753722251.png", "title": "Banner 1", "width": "290", "height": "350"],
-                ["imageURL": "https://d23z30i20xtohh.cloudfront.net/banners/banner_1741314326377.png", "title": "Banner 2", "width": "290", "height": "350"],
-                ["imageURL": "https://d23z30i20xtohh.cloudfront.net/banners/banner_1741314356541.png", "title": "Banner 3", "width": "290", "height": "350"]
+            items = [
+                ImageItem(imageURL: "https://d23z30i20xtohh.cloudfront.net/banners/banner_1703753722251.png"),
+                ImageItem(imageURL: "https://d23z30i20xtohh.cloudfront.net/banners/banner_1741314326377.png"),
+                ImageItem(imageURL: "https://d23z30i20xtohh.cloudfront.net/banners/banner_1741314356541.png"),
+                ImageItem(imageURL: "https://d23z30i20xtohh.cloudfront.net/banners/banner_1703753620365.png")
             ]
         case 3:
-            return [
-                ["imageURL": "https://d23z30i20xtohh.cloudfront.net/banners/banner_1564756447467.jpg", "title": "Banner 1", "width": "640", "height": "360"],
-                ["imageURL": "https://d23z30i20xtohh.cloudfront.net/banners/banner_1703753620365.png", "title": "Banner 2", "width": "465", "height": "465"]
+            items = [
+                ImageItem(imageURL: "https://d23z30i20xtohh.cloudfront.net/banners/banner_1564756447467.jpg"),
+                ImageItem(imageURL: "https://d23z30i20xtohh.cloudfront.net/banners/banner_1703753620365.png"),
+                ImageItem(imageURL: "https://d23z30i20xtohh.cloudfront.net/banners/banner_1564756447467.jpg"),
+                ImageItem(imageURL: "https://d23z30i20xtohh.cloudfront.net/banners/banner_1703753620365.png")
             ]
         case 4:
-            return [
-                ["imageURL": "https://d23z30i20xtohh.cloudfront.net/banners/banner_1703753620365.png", "title": "Banner 2", "width": "465", "height": "465"],
-                ["imageURL": "https://d23z30i20xtohh.cloudfront.net/banners/banner_1564756447467.jpg", "title": "Banner 1", "width": "640", "height": "360"]
+            items = [
+                ImageItem(imageURL: "https://d23z30i20xtohh.cloudfront.net/banners/banner_1703753620365.png"),
+                ImageItem(imageURL: "https://d23z30i20xtohh.cloudfront.net/banners/banner_1564756447467.jpg"),
+                ImageItem(imageURL: "https://d23z30i20xtohh.cloudfront.net/banners/banner_1703753620365.png"),
+                ImageItem(imageURL: "https://d23z30i20xtohh.cloudfront.net/banners/banner_1564756447467.jpg")
             ]
         default:
-            return []
+            items = []
         }
+        
+        sectionItems[section] = items
+        return items
     }
     
-    // Calculate max height using image metadata (width/height)
     func getMaxHeightForSection(section: Int) -> CGFloat? {
         let items = getMenuItems(for: section)
-        let moduleLayout = section + 1
         var heights: [CGFloat] = []
         
         for (rowIndex, item) in items.enumerated() {
-            guard
-                let widthStr = item["width"],
-                let heightStr = item["height"],
-                let fileWidth = Float(widthStr),
-                let fileHeight = Float(heightStr)
-            else { continue }
+            guard let fileWidth = item.width, let fileHeight = item.height else {
+                continue
+            }
             
             let bannerSize = BannerUtility.getBannerSize(
                 rowIndex: rowIndex,
-                fileWidth: CGFloat(fileWidth),
-                fileHeight: CGFloat(fileHeight),
-                moduleLayout: "\(moduleLayout)"
+                fileWidth: fileWidth,
+                fileHeight: fileHeight,
+                moduleLayout: "\(section + 1)"
             )
             heights.append(bannerSize.height + 10)
         }
@@ -88,7 +197,8 @@ class ViewController: UIViewController {
     }
 }
 
-// MARK: - Table View Delegate & Data Source
+// MARK: - UITableViewDelegate & DataSource
+
 extension ViewController: UITableViewDelegate, UITableViewDataSource {
     
     func numberOfSections(in tableView: UITableView) -> Int {
@@ -104,8 +214,10 @@ extension ViewController: UITableViewDelegate, UITableViewDataSource {
             return UITableViewCell()
         }
         let menuItems = getMenuItems(for: indexPath.section)
-        cell.arrOfMenuItems = menuItems
+        cell.imageItems = menuItems
         cell.Module_Layout = "\(indexPath.section + 1)"
+        
+        cell.collectionView.reloadData()
         return cell
     }
     
@@ -113,3 +225,4 @@ extension ViewController: UITableViewDelegate, UITableViewDataSource {
         return getMaxHeightForSection(section: indexPath.section) ?? UITableView.automaticDimension
     }
 }
+
