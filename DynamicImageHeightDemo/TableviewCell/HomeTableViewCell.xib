@@ -20,9 +20,6 @@
                     <collectionView clipsSubviews="YES" multipleTouchEnabled="YES" contentMode="scaleToFill" dataMode="none" translatesAutoresizingMaskIntoConstraints="NO" id="XYT-tV-Sxt">
                         <rect key="frame" x="0.0" y="5" width="320" height="140"/>
                         <color key="backgroundColor" systemColor="systemBackgroundColor"/>
-                        <constraints>
-                            <constraint firstAttribute="height" priority="750" constant="100" id="0IV-Ky-oQI"/>
-                        </constraints>
                         <collectionViewFlowLayout key="collectionViewLayout" scrollDirection="horizontal" minimumLineSpacing="10" minimumInteritemSpacing="10" id="Pjh-ss-d3L">
                             <size key="itemSize" width="128" height="128"/>
                             <size key="headerReferenceSize" width="0.0" height="0.0"/>
@@ -41,7 +38,6 @@
             <viewLayoutGuide key="safeArea" id="njF-e1-oar"/>
             <connections>
                 <outlet property="collectionView" destination="XYT-tV-Sxt" id="ztZ-L2-dYs"/>
-                <outlet property="heightCollectionViewConstraint" destination="0IV-Ky-oQI" id="1Lw-hh-mCC"/>
             </connections>
             <point key="canvasLocation" x="105" y="-11"/>
         </tableViewCell>
