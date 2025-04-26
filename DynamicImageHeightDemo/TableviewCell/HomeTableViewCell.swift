@@ -18,13 +18,16 @@ class HomeTableViewCell: UITableViewCell {
     override func awakeFromNib() {
         super.awakeFromNib()
         
-        let layout = UICollectionViewFlowLayout()
-        layout.minimumInteritemSpacing = 10
-        layout.minimumLineSpacing = 10
-        layout.sectionInset = UIEdgeInsets(top: 0, left: 20, bottom: 0, right: 20)
-        layout.scrollDirection = .horizontal
+        // Initialize the AlignedCollectionViewFlowLayout
+        let alignedFlowLayout = AlignedCollectionViewFlowLayout()
+        alignedFlowLayout.minimumInteritemSpacing = 10
+        alignedFlowLayout.minimumLineSpacing = 10
+        alignedFlowLayout.sectionInset = UIEdgeInsets(top: 0, left: 20, bottom: 0, right: 20)
+        alignedFlowLayout.scrollDirection = .horizontal
+        alignedFlowLayout.horizontalAlignment = .justified
+        alignedFlowLayout.verticalAlignment = .top
+        collectionView.collectionViewLayout = alignedFlowLayout
         
-        collectionView.collectionViewLayout = layout
         collectionView.delegate = self
         collectionView.dataSource = self
         
